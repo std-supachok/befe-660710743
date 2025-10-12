@@ -34,7 +34,6 @@ var db *sql.DB
 
 func initDB() {
 	var err error
-
 	host := getEnv("DB_HOST", "")
 	name := getEnv("DB_NAME", "")
 	user := getEnv("DB_USER", "")
@@ -43,10 +42,18 @@ func initDB() {
 
 	conSt := fmt.Sprintf("host=%s port=%s user=%s password=%s dbname=%s sslmode=disable", host, port, user, password, name)
 	//fmt.Println(conSt)
+
 	db, err = sql.Open("postgres", conSt)
 	if err != nil {
 		log.Fatal("failed to open database")
 	}
+
+	err = db.Ping()
+	if err != nil {
+		log.Fatal("Failed to connect to database")
+	}
+
+	log.Print("successfully connect to database")
 
 	// กำหนดจำนวน Connection สูงสุด
 	db.SetMaxOpenConns(25)
@@ -56,13 +63,6 @@ func initDB() {
 
 	// กำหนดอายุของ Connection
 	db.SetConnMaxLifetime(5 * time.Minute)
-
-	err = db.Ping()
-	if err != nil {
-		log.Fatal("failed to connect to database")
-	}
-
-	log.Println("Successfully connected to database")
 }
 
 func getAllBooks(c *gin.Context) {
@@ -144,7 +144,6 @@ func createBook(c *gin.Context) {
 
 func updateBook(c *gin.Context) {
 	var ID int
-
 	id := c.Param("id")
 	var updateBook Book
 
@@ -158,7 +157,7 @@ func updateBook(c *gin.Context) {
 		`UPDATE books
          SET title = $1, author = $2, isbn = $3, year = $4, price = $5
          WHERE id = $6
-         RETURNING updated_at`,
+         RETURNING ID,updated_at`,
 		updateBook.Title, updateBook.Author, updateBook.ISBN,
 		updateBook.Year, updateBook.Price, id,
 	).Scan(&ID, &updatedAt)
@@ -207,7 +206,7 @@ func main() {
 	r.GET("/health", func(c *gin.Context) {
 		err := db.Ping()
 		if err != nil {
-			c.JSON(http.StatusServiceUnavailable, gin.H{"message": "unhealthy", "error": err})
+			c.JSON(http.StatusServiceUnavailable, gin.H{"message": "unhealty", "error": err})
 			return
 		}
 		c.JSON(200, gin.H{"message": "healthy"})
